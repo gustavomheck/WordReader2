@@ -23,6 +23,12 @@ enum RemainingTimeScope: String, CaseIterable {
     }
 }
 
+enum ReaderAccent: String, CaseIterable {
+    case red, orange, green, blue, purple, pink
+
+    var title: String { rawValue.capitalized }
+}
+
 struct ReadingWord: Identifiable {
     struct ID: Hashable {
         let chapter: Int
@@ -51,11 +57,13 @@ final class ReaderModel: ObservableObject {
     @Published private(set) var wordsPerMinute = 300
     @Published private(set) var readingStyle: ReadingStyle = .flash
     @Published private(set) var remainingTimeScope: RemainingTimeScope = .chapter
+    @Published private(set) var accent: ReaderAccent = .red
     @Published private(set) var recentBooks: [RecentBook] = []
 
     private static let wordsPerMinuteKey = "wordsPerMinute"
     private static let readingStyleKey = "readingStyle"
     private static let remainingTimeScopeKey = "remainingTimeScope"
+    private static let accentKey = "readerAccent"
     private let defaults: UserDefaults
     private let library: BookLibrary
     private var currentBookID: String?
@@ -78,6 +86,10 @@ final class ReaderModel: ObservableObject {
         if let stored = defaults.string(forKey: Self.remainingTimeScopeKey),
            let scope = RemainingTimeScope(rawValue: stored) {
             remainingTimeScope = scope
+        }
+        if let stored = defaults.string(forKey: Self.accentKey),
+           let accent = ReaderAccent(rawValue: stored) {
+            self.accent = accent
         }
         do {
             recentBooks = try library.loadIndex().sorted { $0.lastOpened > $1.lastOpened }
@@ -250,6 +262,12 @@ final class ReaderModel: ObservableObject {
         guard scope != remainingTimeScope else { return }
         remainingTimeScope = scope
         defaults.set(scope.rawValue, forKey: Self.remainingTimeScopeKey)
+    }
+
+    func setAccent(_ accent: ReaderAccent) {
+        guard accent != self.accent else { return }
+        self.accent = accent
+        defaults.set(accent.rawValue, forKey: Self.accentKey)
     }
 
     func toggleReading() {

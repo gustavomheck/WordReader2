@@ -39,16 +39,51 @@ private let rule = adaptiveColor(
     light: UIColor(red: 0.87, green: 0.87, blue: 0.89, alpha: 1),
     dark: UIColor(red: 0.16, green: 0.16, blue: 0.18, alpha: 1)
 )
-private let highlight = adaptiveColor(
-    light: UIColor(red: 0.71, green: 0.12, blue: 0.16, alpha: 1),
-    dark: UIColor(red: 0.94, green: 0.27, blue: 0.30, alpha: 1)
-)
+extension ReaderAccent {
+    var color: Color {
+        let light: UIColor
+        let dark: UIColor
+        switch self {
+        case .red:
+            light = UIColor(red: 0.71, green: 0.12, blue: 0.16, alpha: 1)
+            dark = UIColor(red: 0.94, green: 0.27, blue: 0.30, alpha: 1)
+        case .orange:
+            light = UIColor(red: 0.64, green: 0.29, blue: 0.00, alpha: 1)
+            dark = UIColor(red: 1.00, green: 0.58, blue: 0.20, alpha: 1)
+        case .green:
+            light = UIColor(red: 0.08, green: 0.43, blue: 0.22, alpha: 1)
+            dark = UIColor(red: 0.30, green: 0.78, blue: 0.46, alpha: 1)
+        case .blue:
+            light = UIColor(red: 0.05, green: 0.35, blue: 0.72, alpha: 1)
+            dark = UIColor(red: 0.32, green: 0.65, blue: 1.00, alpha: 1)
+        case .purple:
+            light = UIColor(red: 0.42, green: 0.23, blue: 0.70, alpha: 1)
+            dark = UIColor(red: 0.72, green: 0.52, blue: 1.00, alpha: 1)
+        case .pink:
+            light = UIColor(red: 0.67, green: 0.14, blue: 0.38, alpha: 1)
+            dark = UIColor(red: 1.00, green: 0.45, blue: 0.64, alpha: 1)
+        }
+        return adaptiveColor(light: light, dark: dark)
+    }
+}
+
+private struct ReaderAccentKey: EnvironmentKey {
+    static let defaultValue = ReaderAccent.red.color
+}
+
+private extension EnvironmentValues {
+    var readerAccent: Color {
+        get { self[ReaderAccentKey.self] }
+        set { self[ReaderAccentKey.self] = newValue }
+    }
+}
 
 struct ContentView: View {
     @StateObject private var reader = ReaderModel()
     @AppStorage("readerTheme") private var theme: ReaderTheme = .dark
     @AppStorage("zenMode") private var zenMode = false
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showSettings = false
     @State private var showImporter = false
     @State private var importRequested = false
@@ -105,6 +140,7 @@ struct ContentView: View {
                 importRequested = true
                 showSettings = false
             }
+            .environment(\.readerAccent, reader.accent.color)
         }
         .fileImporter(
             isPresented: $showImporter,
@@ -127,6 +163,8 @@ struct ContentView: View {
             if phase != .active { reader.pause() }
         }
         .preferredColorScheme(theme.colorScheme)
+        .environment(\.readerAccent, reader.accent.color)
+        .tint(reader.accent.color)
     }
 
     private var header: some View {
@@ -197,7 +235,7 @@ struct ContentView: View {
     private var footer: some View {
         VStack(spacing: 18) {
             ProgressView(value: reader.progress)
-                .tint(highlight)
+                .tint(reader.accent.color)
                 .accessibilityLabel("Book progress")
                 .accessibilityValue("\(Int(reader.progress * 100)) percent")
             HStack {
@@ -214,8 +252,8 @@ struct ContentView: View {
                             .font(.system(size: 15, weight: .semibold))
                             .padding(.horizontal, 20)
                             .frame(height: 42)
-                            .background(reader.book == nil ? rule : highlight, in: Capsule())
-                            .foregroundColor(reader.book == nil ? .primary : .white)
+                            .background(reader.book == nil ? rule : reader.accent.color, in: Capsule())
+                            .foregroundColor(reader.book == nil ? .primary : accentButtonText)
                     }
                     .disabled(reader.isLoading)
                 }
@@ -225,6 +263,11 @@ struct ContentView: View {
 
     private var readingActionLabel: String {
         reader.isReading ? "Pause" : reader.isFinished ? "Read again" : "Read"
+    }
+
+    private var accentButtonText: Color {
+        let isDark = theme.colorScheme == .dark || (theme.colorScheme == nil && colorScheme == .dark)
+        return isDark && reader.accent != .red ? .black : .white
     }
 
     private func readingAction() {
@@ -241,6 +284,7 @@ private struct FocalWord: View {
     let parts: (prefix: String, focal: String, suffix: String)
     var highlighted = true
     var fontSize: CGFloat?
+    @Environment(\.readerAccent) private var highlight
 
     var body: some View {
         GeometryReader { geometry in
@@ -334,6 +378,7 @@ private struct ReaderSettings: View {
     @Binding var zenMode: Bool
     let openBook: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.readerAccent) private var highlight
 
     var body: some View {
         NavigationView {
@@ -421,13 +466,6 @@ private struct ReaderSettings: View {
                     ), in: 50...1200, step: 10)
                     .tint(highlight)
                     .accessibilityLabel("Words per minute")
-                    HStack {
-                        Text("50")
-                        Spacer()
-                        Text("1,200")
-                    }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
                 }
 
                 Section("Remaining time") {
@@ -450,6 +488,42 @@ private struct ReaderSettings: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    NavigationLink {
+                        List {
+                            ForEach(ReaderAccent.allCases, id: \.self) { accent in
+                                Button {
+                                    reader.setAccent(accent)
+                                } label: {
+                                    HStack {
+                                        Circle()
+                                            .fill(accent.color)
+                                            .frame(width: 24, height: 24)
+                                        Text(accent.title)
+                                            .foregroundColor(.primary)
+                                        Spacer()
+                                        if accent == reader.accent {
+                                            Image(systemName: "checkmark")
+                                                .foregroundColor(highlight)
+                                        }
+                                    }
+                                    .contentShape(Rectangle())
+                                }
+                                .accessibilityAddTraits(accent == reader.accent ? .isSelected : [])
+                            }
+                        }
+                        .navigationTitle("Accent color")
+                        .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        HStack {
+                            Text("Accent color")
+                            Spacer()
+                            Text(reader.accent.title)
+                                .foregroundColor(.secondary)
+                            Circle()
+                                .fill(reader.accent.color)
+                                .frame(width: 18, height: 18)
+                        }
+                    }
                 }
 
                 Section("Reading style") {

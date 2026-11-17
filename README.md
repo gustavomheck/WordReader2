@@ -13,6 +13,8 @@ Tap **Read** to start or **Pause** to stop. The reader advances through chapters
 
 Choose **Dark**, **White**, or **Device** under Appearance in the reading menu. Device follows the iPhone's light or dark appearance. The selected theme is remembered between launches.
 
+Choose an **Accent color** under Appearance. Red is the default, and the selected color is remembered between launches.
+
 Enable **Zen mode** under Appearance to hide the book and chapter titles and the reading button. Tap the word or the surrounding screen to start, pause, or restart reading; the configuration menu remains available. With no book loaded, tap to open the EPUB picker. The setting is remembered between launches.
 
 Choose **Flash** for the original one-word display or **Flow** to see the previous and next words alongside the current word, without animation. The reading style is remembered between launches.

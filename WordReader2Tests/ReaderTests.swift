@@ -57,6 +57,19 @@ final class ReaderTests: XCTestCase {
     }
 
     @MainActor
+    func testAccentDefaultsToRedAndPersistsAcrossLaunches() throws {
+        let defaults = try makeDefaults()
+        let library = try makeLibrary()
+        let reader = ReaderModel(library: library, restoreLastBook: false, defaults: defaults)
+        XCTAssertEqual(reader.accent, .red)
+        for accent in ReaderAccent.allCases {
+            reader.setAccent(accent)
+            let relaunched = ReaderModel(library: library, restoreLastBook: false, defaults: defaults)
+            XCTAssertEqual(relaunched.accent, accent)
+        }
+    }
+
+    @MainActor
     func testRemainingTimeScopeAndBookProgress() async throws {
         let defaults = try makeDefaults()
         let library = try makeLibrary()
