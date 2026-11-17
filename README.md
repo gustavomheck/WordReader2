@@ -1,6 +1,6 @@
 # Word Reader
 
-An iPhone speed reader for EPUB books, based on the included WPF prototype. The reader shows one word at a time with its focal character aligned to the center.
+An iPhone speed reader for EPUB books. The reader shows one word at a time with its focal character aligned to the center.
 
 ## Run on an iPhone
 
