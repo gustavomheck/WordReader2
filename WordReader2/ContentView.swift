@@ -468,26 +468,34 @@ private struct ReaderSettings: View {
                     .accessibilityLabel("Words per minute")
                 }
 
-                Section("Remaining time") {
-                    Picker("Remaining time", selection: Binding(
-                        get: { reader.remainingTimeScope },
-                        set: { reader.setRemainingTimeScope($0) }
-                    )) {
-                        ForEach(RemainingTimeScope.allCases, id: \.self) { scope in
-                            Text(scope.title).tag(scope)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                Section("Reading preferences") {
+                    SettingSelectionLink(
+                        title: "Reading style",
+                        options: ReadingStyle.allCases,
+                        selection: Binding(
+                            get: { reader.readingStyle },
+                            set: { reader.setReadingStyle($0) }
+                        ),
+                        optionTitle: { $0.title }
+                    )
+                    SettingSelectionLink(
+                        title: "Remaining time",
+                        options: RemainingTimeScope.allCases,
+                        selection: Binding(
+                            get: { reader.remainingTimeScope },
+                            set: { reader.setRemainingTimeScope($0) }
+                        ),
+                        optionTitle: { $0.title }
+                    )
                 }
 
                 Section("Appearance") {
-                    Toggle("Zen mode", isOn: $zenMode)
-                    Picker("Theme", selection: $theme) {
-                        ForEach(ReaderTheme.allCases, id: \.self) { option in
-                            Text(option.title).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    SettingSelectionLink(
+                        title: "Theme",
+                        options: ReaderTheme.allCases,
+                        selection: $theme,
+                        optionTitle: { $0.title }
+                    )
                     NavigationLink {
                         List {
                             ForEach(ReaderAccent.allCases, id: \.self) { accent in
@@ -524,21 +532,7 @@ private struct ReaderSettings: View {
                                 .frame(width: 18, height: 18)
                         }
                     }
-                }
-
-                Section("Reading style") {
-                    Picker("Reading style", selection: Binding(
-                        get: { reader.readingStyle },
-                        set: { reader.setReadingStyle($0) }
-                    )) {
-                        ForEach(ReadingStyle.allCases, id: \.self) { style in
-                            Text(style.title).tag(style)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    Text("Flow shows the previous and next words alongside the current word.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Toggle("Zen mode", isOn: $zenMode)
                 }
             }
             .navigationTitle("Configuration")
@@ -548,8 +542,50 @@ private struct ReaderSettings: View {
                     Button("Done") { dismiss() }
                 }
             }
+
         }
         .tint(highlight)
         .preferredColorScheme(theme.colorScheme)
+    }
+}
+
+private struct SettingSelectionLink<Option: Hashable>: View {
+    let title: String
+    let options: [Option]
+    @Binding var selection: Option
+    let optionTitle: (Option) -> String
+    @Environment(\.readerAccent) private var highlight
+
+    var body: some View {
+        NavigationLink {
+            List {
+                ForEach(options, id: \.self) { option in
+                    Button {
+                        selection = option
+                    } label: {
+                        HStack {
+                            Text(optionTitle(option))
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if option == selection {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(highlight)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .accessibilityAddTraits(option == selection ? .isSelected : [])
+                }
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+        } label: {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(optionTitle(selection))
+                    .foregroundColor(.secondary)
+            }
+        }
     }
 }
