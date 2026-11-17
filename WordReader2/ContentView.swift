@@ -157,13 +157,6 @@ struct ContentView: View {
             Spacer(minLength: 4)
             Rectangle().fill(rule).frame(width: 2, height: 24)
             Rectangle().fill(rule).frame(height: 2)
-            HStack {
-                Spacer()
-                Text("\(reader.wordsPerMinute) wpm")
-                    .font(.system(size: 13, weight: .medium, design: .rounded).italic())
-                    .foregroundColor(subdued)
-                    .padding(.top, 8)
-            }
         }
     }
 
@@ -313,21 +306,36 @@ private struct ReaderSettings: View {
 
                 if let book = reader.book {
                     Section("Chapter") {
-                        ForEach(book.chapters.indices, id: \.self) { index in
-                            Button {
-                                reader.selectChapter(index)
-                                dismiss()
-                            } label: {
-                                HStack {
-                                    Text(book.chapters[index].title)
-                                        .foregroundColor(.primary)
-                                    Spacer()
-                                    if index == reader.chapterIndex {
-                                        Image(systemName: "checkmark").foregroundColor(highlight)
+                        NavigationLink {
+                            List {
+                                ForEach(book.chapters.indices, id: \.self) { index in
+                                    Button {
+                                        reader.selectChapter(index)
+                                        dismiss()
+                                    } label: {
+                                        HStack {
+                                            Text(book.chapters[index].title)
+                                                .foregroundColor(.primary)
+                                            Spacer()
+                                            if index == reader.chapterIndex {
+                                                Image(systemName: "checkmark").foregroundColor(highlight)
+                                            }
+                                        }
                                     }
                                 }
                             }
+                            .navigationTitle("Chapters")
+                            .navigationBarTitleDisplayMode(.inline)
+                        } label: {
+                            HStack {
+                                Text("Select chapter")
+                                Spacer()
+                                Text(reader.currentChapter?.title ?? "")
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
+                        .disabled(reader.isLoading)
                     }
                 }
             }

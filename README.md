@@ -7,9 +7,9 @@ An iPhone speed reader for EPUB books, based on the included WPF prototype. The 
 1. Open `WordReader2.xcodeproj` in Xcode and allow it to resolve its Swift packages.
 2. Select the WordReader2 target, choose your Apple development team under **Signing & Capabilities**, and change the bundle identifier if necessary.
 3. Connect your iPhone, select it as the run destination, and run the app. The minimum supported version is iOS 16.0.
-4. Tap **Open an EPUB to begin** or **Read** to select an EPUB. You can also choose **Open EPUB from Files** in the reading menu, where you can set the reading speed and select a chapter.
+4. Tap **Open an EPUB to begin** or **Read** to select an EPUB. You can also choose **Open EPUB from Files** in the reading menu, where you can set the reading speed and open **Select chapter** to choose a chapter.
 
-Tap **Read** to start or **Pause** to stop. The reader advances through chapters automatically, shows overall progress and the estimated time remaining in the current chapter, and pauses when the app leaves the foreground. After finishing, **Read again** starts at the beginning.
+Tap **Read** to start or **Pause** to stop. The reader advances through chapters automatically, shows overall progress and the estimated time remaining in the current chapter, and pauses when the app leaves the foreground. After finishing, **Read again** starts at the beginning. The reading speed is shared across books and remembered between launches.
 
 Choose **Dark**, **White**, or **Device** under Appearance in the reading menu. Device follows the iPhone's light or dark appearance. The selected theme is remembered between launches.
 

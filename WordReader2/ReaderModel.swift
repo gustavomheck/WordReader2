@@ -12,6 +12,8 @@ final class ReaderModel: ObservableObject {
     @Published private(set) var wordsPerMinute = 300
     @Published private(set) var recentBooks: [RecentBook] = []
 
+    private static let wordsPerMinuteKey = "wordsPerMinute"
+    private let defaults: UserDefaults
     private let library: BookLibrary
     private var currentBookID: String?
     private var libraryAvailable = true
@@ -19,8 +21,13 @@ final class ReaderModel: ObservableObject {
     private var readingTask: Task<Void, Never>?
     private var totalWords = 0
 
-    init(library: BookLibrary = BookLibrary(), restoreLastBook: Bool = true) {
+    init(library: BookLibrary = BookLibrary(), restoreLastBook: Bool = true,
+         defaults: UserDefaults = .standard) {
         self.library = library
+        self.defaults = defaults
+        if let stored = defaults.object(forKey: Self.wordsPerMinuteKey) as? Int {
+            wordsPerMinute = min(1200, max(50, stored))
+        }
         do {
             recentBooks = try library.loadIndex().sorted { $0.lastOpened > $1.lastOpened }
             if restoreLastBook, let recent = recentBooks.first {
@@ -144,6 +151,7 @@ final class ReaderModel: ObservableObject {
         let bounded = min(1200, max(50, value))
         guard bounded != wordsPerMinute else { return }
         wordsPerMinute = bounded
+        defaults.set(bounded, forKey: Self.wordsPerMinuteKey)
         if isReading { startTimer() }
     }
 

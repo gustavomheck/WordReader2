@@ -4,6 +4,13 @@ import ZIPFoundation
 @testable import WordReader2
 
 final class ReaderTests: XCTestCase {
+    private func makeDefaults() throws -> UserDefaults {
+        let suite = "WordReader2Tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        addTeardownBlock { defaults.removePersistentDomain(forName: suite) }
+        return defaults
+    }
+
     private func makeLibrary() throws -> BookLibrary {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -17,6 +24,23 @@ final class ReaderTests: XCTestCase {
         XCTAssertNil(ReaderTheme.device.colorScheme)
         XCTAssertEqual(ReaderTheme.allCases.map(\.title), ["Dark", "White", "Device"])
         XCTAssertEqual(ReaderTheme(rawValue: "device"), .device)
+    }
+
+    @MainActor
+    func testReadingSpeedPersistsAndStaysWithinBounds() throws {
+        let defaults = try makeDefaults()
+        let library = try makeLibrary()
+        let reader = ReaderModel(library: library, restoreLastBook: false, defaults: defaults)
+        XCTAssertEqual(reader.wordsPerMinute, 300)
+        reader.setWordsPerMinute(600)
+        let relaunched = ReaderModel(library: library, restoreLastBook: false, defaults: defaults)
+        XCTAssertEqual(relaunched.wordsPerMinute, 600)
+        relaunched.setWordsPerMinute(5000)
+        XCTAssertEqual(ReaderModel(library: library, restoreLastBook: false, defaults: defaults).wordsPerMinute, 1200)
+        relaunched.setWordsPerMinute(0)
+        XCTAssertEqual(ReaderModel(library: library, restoreLastBook: false, defaults: defaults).wordsPerMinute, 50)
+        defaults.set(5000, forKey: "wordsPerMinute")
+        XCTAssertEqual(ReaderModel(library: library, restoreLastBook: false, defaults: defaults).wordsPerMinute, 1200)
     }
 
     private func makeBook(title: String = "Test &amp; Book") throws -> URL {
@@ -71,7 +95,7 @@ final class ReaderTests: XCTestCase {
     func testReadingTransitionsCompletionAndRestart() async throws {
         let url = try makeBook()
         defer { try? FileManager.default.removeItem(at: url) }
-        let reader = ReaderModel(library: try makeLibrary(), restoreLastBook: false)
+        let reader = ReaderModel(library: try makeLibrary(), restoreLastBook: false, defaults: try makeDefaults())
         reader.open(url)
         for _ in 0..<100 where reader.isLoading {
             try await Task.sleep(nanoseconds: 20_000_000)
@@ -98,7 +122,7 @@ final class ReaderTests: XCTestCase {
     func testFailedImportKeepsCurrentBook() async throws {
         let url = try makeBook()
         defer { try? FileManager.default.removeItem(at: url) }
-        let reader = ReaderModel(library: try makeLibrary(), restoreLastBook: false)
+        let reader = ReaderModel(library: try makeLibrary(), restoreLastBook: false, defaults: try makeDefaults())
         reader.open(url)
         for _ in 0..<100 where reader.isLoading {
             try await Task.sleep(nanoseconds: 20_000_000)
@@ -116,7 +140,7 @@ final class ReaderTests: XCTestCase {
     func testPlaybackAdvancesToNextChapterAndPauseStopsIt() async throws {
         let url = try makeBook()
         defer { try? FileManager.default.removeItem(at: url) }
-        let reader = ReaderModel(library: try makeLibrary(), restoreLastBook: false)
+        let reader = ReaderModel(library: try makeLibrary(), restoreLastBook: false, defaults: try makeDefaults())
         reader.open(url)
         for _ in 0..<100 where reader.isLoading {
             try await Task.sleep(nanoseconds: 20_000_000)
@@ -144,7 +168,7 @@ final class ReaderTests: XCTestCase {
             try? FileManager.default.removeItem(at: second)
         }
         let library = try makeLibrary()
-        let reader = ReaderModel(library: library, restoreLastBook: false)
+        let reader = ReaderModel(library: library, restoreLastBook: false, defaults: try makeDefaults())
         reader.open(first)
         for _ in 0..<100 where reader.isLoading { try await Task.sleep(nanoseconds: 20_000_000) }
         XCTAssertNil(reader.errorMessage)
@@ -164,7 +188,7 @@ final class ReaderTests: XCTestCase {
         XCTAssertEqual(reader.currentWord, "First")
         try FileManager.default.removeItem(at: first)
 
-        let relaunched = ReaderModel(library: library)
+        let relaunched = ReaderModel(library: library, defaults: try makeDefaults())
         for _ in 0..<100 where relaunched.isLoading { try await Task.sleep(nanoseconds: 20_000_000) }
         XCTAssertNil(relaunched.errorMessage)
         XCTAssertEqual(relaunched.chapterIndex, 1)
@@ -184,7 +208,7 @@ final class ReaderTests: XCTestCase {
         let url = try makeBook()
         defer { try? FileManager.default.removeItem(at: url) }
         let library = try makeLibrary()
-        let reader = ReaderModel(library: library, restoreLastBook: false)
+        let reader = ReaderModel(library: library, restoreLastBook: false, defaults: try makeDefaults())
         reader.open(url)
         for _ in 0..<100 where reader.isLoading { try await Task.sleep(nanoseconds: 20_000_000) }
         reader.selectChapter(1)
@@ -192,7 +216,7 @@ final class ReaderTests: XCTestCase {
         reader.toggleReading()
         for _ in 0..<100 where reader.isReading { try await Task.sleep(nanoseconds: 20_000_000) }
         XCTAssertTrue(reader.isFinished)
-        let relaunched = ReaderModel(library: library)
+        let relaunched = ReaderModel(library: library, defaults: try makeDefaults())
         for _ in 0..<100 where relaunched.isLoading { try await Task.sleep(nanoseconds: 20_000_000) }
         XCTAssertTrue(relaunched.isFinished)
         XCTAssertEqual(relaunched.progress, 1)
@@ -203,7 +227,7 @@ final class ReaderTests: XCTestCase {
         let url = try makeBook()
         defer { try? FileManager.default.removeItem(at: url) }
         let library = try makeLibrary()
-        let reader = ReaderModel(library: library, restoreLastBook: false)
+        let reader = ReaderModel(library: library, restoreLastBook: false, defaults: try makeDefaults())
         reader.open(url)
         for _ in 0..<100 where reader.isLoading { try await Task.sleep(nanoseconds: 20_000_000) }
         reader.setWordsPerMinute(50)
@@ -214,7 +238,7 @@ final class ReaderTests: XCTestCase {
         let saved = try XCTUnwrap(try library.loadIndex().first)
         XCTAssertEqual(saved.wordIndex, 1)
         reader.pause()
-        let relaunched = ReaderModel(library: library)
+        let relaunched = ReaderModel(library: library, defaults: try makeDefaults())
         for _ in 0..<100 where relaunched.isLoading { try await Task.sleep(nanoseconds: 20_000_000) }
         XCTAssertEqual(relaunched.wordIndex, 1)
         XCTAssertEqual(relaunched.currentWord, "or")
@@ -226,7 +250,7 @@ final class ReaderTests: XCTestCase {
         let index = library.directory.appendingPathComponent("library.json")
         let corrupt = Data("invalid library".utf8)
         try corrupt.write(to: index)
-        let reader = ReaderModel(library: library)
+        let reader = ReaderModel(library: library, defaults: try makeDefaults())
         XCTAssertNotNil(reader.errorMessage)
         let url = try makeBook()
         defer { try? FileManager.default.removeItem(at: url) }
