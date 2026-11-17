@@ -47,6 +47,7 @@ private let highlight = adaptiveColor(
 struct ContentView: View {
     @StateObject private var reader = ReaderModel()
     @AppStorage("readerTheme") private var theme: ReaderTheme = .dark
+    @AppStorage("zenMode") private var zenMode = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
     @State private var showImporter = false
@@ -55,16 +56,41 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { geometry in
             let compact = geometry.size.height < 500
-            VStack(spacing: 0) {
-                header
-                Spacer(minLength: compact ? 4 : 20)
-                readingWindow
+            ZStack {
+                if zenMode {
+                    Button(action: readingAction) {
+                        Color.clear
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(reader.isLoading)
+                    .accessibilityHidden(true)
+                }
+
+                VStack(spacing: 0) {
+                    header
+                    Spacer(minLength: compact ? 4 : 20)
+                    Group {
+                        if zenMode && reader.book != nil {
+                            Button(action: readingAction) {
+                                readingWindow
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(reader.isLoading)
+                            .accessibilityLabel(readingActionLabel)
+                            .accessibilityValue(reader.currentWord)
+                        } else {
+                            readingWindow
+                        }
+                    }
                     .frame(height: compact ? max(130, min(210, geometry.size.height - 160)) : 210)
-                Spacer(minLength: compact ? 4 : 20)
-                footer
+                    Spacer(minLength: compact ? 4 : 20)
+                    footer
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, compact ? 12 : 24)
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, compact ? 12 : 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(readerBackground.ignoresSafeArea())
@@ -75,7 +101,7 @@ struct ContentView: View {
                 showImporter = true
             }
         }) {
-            ReaderSettings(reader: reader, theme: $theme) {
+            ReaderSettings(reader: reader, theme: $theme, zenMode: $zenMode) {
                 importRequested = true
                 showSettings = false
             }
@@ -105,15 +131,17 @@ struct ContentView: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text(reader.book?.title ?? "Word Reader")
-                    .font(.system(size: 19, weight: .semibold))
-                    .lineLimit(1)
-                if let chapter = reader.currentChapter {
-                    Text(chapter.title)
-                        .font(.subheadline)
-                        .foregroundColor(subdued)
+            if !zenMode {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(reader.book?.title ?? "Word Reader")
+                        .font(.system(size: 19, weight: .semibold))
                         .lineLimit(1)
+                    if let chapter = reader.currentChapter {
+                        Text(chapter.title)
+                            .font(.subheadline)
+                            .foregroundColor(subdued)
+                            .lineLimit(1)
+                    }
                 }
             }
             Spacer()
@@ -180,23 +208,31 @@ struct ContentView: View {
                 }
                 .font(.caption)
                 Spacer()
-                Button {
-                    if reader.book == nil {
-                        showImporter = true
-                    } else {
-                        reader.toggleReading()
+                if !zenMode {
+                    Button(action: readingAction) {
+                        Label(readingActionLabel, systemImage: reader.isReading ? "pause.fill" : "play.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .padding(.horizontal, 20)
+                            .frame(height: 42)
+                            .background(reader.book == nil ? rule : highlight, in: Capsule())
+                            .foregroundColor(reader.book == nil ? .primary : .white)
                     }
-                } label: {
-                    Label(reader.isReading ? "Pause" : reader.isFinished ? "Read again" : "Read",
-                          systemImage: reader.isReading ? "pause.fill" : "play.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                        .padding(.horizontal, 20)
-                        .frame(height: 42)
-                        .background(reader.book == nil ? rule : highlight, in: Capsule())
-                        .foregroundColor(reader.book == nil ? .primary : .white)
+                    .disabled(reader.isLoading)
                 }
-                .disabled(reader.isLoading)
             }
+        }
+    }
+
+    private var readingActionLabel: String {
+        reader.isReading ? "Pause" : reader.isFinished ? "Read again" : "Read"
+    }
+
+    private func readingAction() {
+        guard !reader.isLoading else { return }
+        if reader.book == nil {
+            showImporter = true
+        } else {
+            reader.toggleReading()
         }
     }
 }
@@ -296,6 +332,7 @@ private struct FlowWords: View {
 private struct ReaderSettings: View {
     @ObservedObject var reader: ReaderModel
     @Binding var theme: ReaderTheme
+    @Binding var zenMode: Bool
     let openBook: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -336,53 +373,6 @@ private struct ReaderSettings: View {
                     }
                 }
                 
-                Section("Reading speed") {
-                    HStack {
-                        Text("Words per minute")
-                        Spacer()
-                        Text("\(reader.wordsPerMinute) wpm")
-                            .foregroundColor(.secondary)
-                            .monospacedDigit()
-                    }
-                    Slider(value: Binding(
-                        get: { Double(reader.wordsPerMinute) },
-                        set: { reader.setWordsPerMinute(Int($0)) }
-                    ), in: 50...1200, step: 10)
-                    .tint(highlight)
-                    .accessibilityLabel("Words per minute")
-                    HStack {
-                        Text("50")
-                        Spacer()
-                        Text("1,200")
-                    }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                }
-
-                Section("Appearance") {
-                    Picker("Theme", selection: $theme) {
-                        ForEach(ReaderTheme.allCases, id: \.self) { option in
-                            Text(option.title).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-
-                Section("Reading style") {
-                    Picker("Reading style", selection: Binding(
-                        get: { reader.readingStyle },
-                        set: { reader.setReadingStyle($0) }
-                    )) {
-                        ForEach(ReadingStyle.allCases, id: \.self) { style in
-                            Text(style.title).tag(style)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    Text("Flow shows the previous and next words alongside the current word.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
                 if let book = reader.book {
                     Section("Chapter") {
                         NavigationLink {
@@ -416,6 +406,54 @@ private struct ReaderSettings: View {
                         }
                         .disabled(reader.isLoading)
                     }
+                }
+                
+                Section("Reading speed") {
+                    HStack {
+                        Text("Words per minute")
+                        Spacer()
+                        Text("\(reader.wordsPerMinute) wpm")
+                            .foregroundColor(.secondary)
+                            .monospacedDigit()
+                    }
+                    Slider(value: Binding(
+                        get: { Double(reader.wordsPerMinute) },
+                        set: { reader.setWordsPerMinute(Int($0)) }
+                    ), in: 50...1200, step: 10)
+                    .tint(highlight)
+                    .accessibilityLabel("Words per minute")
+                    HStack {
+                        Text("50")
+                        Spacer()
+                        Text("1,200")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+
+                Section("Appearance") {
+                    Toggle("Zen mode", isOn: $zenMode)
+                    Picker("Theme", selection: $theme) {
+                        ForEach(ReaderTheme.allCases, id: \.self) { option in
+                            Text(option.title).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                Section("Reading style") {
+                    Picker("Reading style", selection: Binding(
+                        get: { reader.readingStyle },
+                        set: { reader.setReadingStyle($0) }
+                    )) {
+                        ForEach(ReadingStyle.allCases, id: \.self) { style in
+                            Text(style.title).tag(style)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    Text("Flow shows the previous and next words alongside the current word.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
             .navigationTitle("Configuration")
