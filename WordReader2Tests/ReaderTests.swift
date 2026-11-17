@@ -56,6 +56,41 @@ final class ReaderTests: XCTestCase {
         XCTAssertEqual(ReaderModel(library: library, restoreLastBook: false, defaults: defaults).readingStyle, .flash)
     }
 
+    @MainActor
+    func testRemainingTimeScopeAndBookProgress() async throws {
+        let defaults = try makeDefaults()
+        let library = try makeLibrary()
+        let reader = ReaderModel(library: library, restoreLastBook: false, defaults: defaults)
+        XCTAssertEqual(reader.remainingTimeScope, .chapter)
+        XCTAssertEqual(reader.remainingTime, "--:--")
+        reader.setRemainingTimeScope(.book)
+        XCTAssertEqual(reader.remainingTime, "--:--")
+        let url = try makeBook()
+        defer { try? FileManager.default.removeItem(at: url) }
+        reader.open(url)
+        for _ in 0..<100 where reader.isLoading { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertNil(reader.errorMessage)
+        reader.setWordsPerMinute(50)
+        XCTAssertEqual(reader.remainingTime, "0:09")
+        reader.setRemainingTimeScope(.chapter)
+        XCTAssertEqual(reader.remainingTime, "0:05")
+        reader.setRemainingTimeScope(.book)
+        let relaunched = ReaderModel(library: library, defaults: defaults)
+        for _ in 0..<100 where relaunched.isLoading { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertEqual(relaunched.remainingTimeScope, .book)
+        XCTAssertEqual(relaunched.remainingTime, "0:09")
+        reader.selectChapter(1)
+        XCTAssertEqual(reader.remainingTime, "0:04")
+        reader.setWordsPerMinute(1200)
+        XCTAssertEqual(reader.remainingTime, "0:01")
+        reader.toggleReading()
+        for _ in 0..<100 where reader.isReading { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertTrue(reader.isFinished)
+        XCTAssertEqual(reader.remainingTime, "0:00")
+        reader.setRemainingTimeScope(.chapter)
+        XCTAssertEqual(reader.remainingTime, "0:00")
+    }
+
     func testFlowLayoutClipsNeighborsInsteadOfShrinkingCurrentWord() {
         let previous = ReadingWord(id: .init(chapter: 0, index: 0), text: "beautiful")
         let current = ReadingWord(id: .init(chapter: 0, index: 1), text: "reading")

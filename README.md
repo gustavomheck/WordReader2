@@ -9,7 +9,7 @@ An iPhone speed reader for EPUB books. The reader shows one word at a time with 
 3. Connect your iPhone, select it as the run destination, and run the app. The minimum supported version is iOS 16.0.
 4. Tap **Open an EPUB to begin** or **Read** to select an EPUB. You can also choose **Open EPUB from Files** in the reading menu, where you can set the reading speed and open **Select chapter** to choose a chapter.
 
-Tap **Read** to start or **Pause** to stop. The reader advances through chapters automatically, shows overall progress and the estimated time remaining in the current chapter, and pauses when the app leaves the foreground. After finishing, **Read again** starts at the beginning. The reading speed is shared across books and remembered between launches.
+Tap **Read** to start or **Pause** to stop. The reader advances through chapters automatically, shows overall progress and the estimated time remaining, and pauses when the app leaves the foreground. Choose **Chapter** (the default) or **Book** under Remaining time in the configuration menu. After finishing, **Read again** starts at the beginning. The reading speed and remaining-time selection are shared across books and remembered between launches.
 
 Choose **Dark**, **White**, or **Device** under Appearance in the reading menu. Device follows the iPhone's light or dark appearance. The selected theme is remembered between launches.
 

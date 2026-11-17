@@ -12,6 +12,17 @@ enum ReadingStyle: String, CaseIterable {
     }
 }
 
+enum RemainingTimeScope: String, CaseIterable {
+    case chapter, book
+
+    var title: String {
+        switch self {
+        case .chapter: return "Chapter"
+        case .book: return "Book"
+        }
+    }
+}
+
 struct ReadingWord: Identifiable {
     struct ID: Hashable {
         let chapter: Int
@@ -39,10 +50,12 @@ final class ReaderModel: ObservableObject {
     @Published var errorMessage: String?
     @Published private(set) var wordsPerMinute = 300
     @Published private(set) var readingStyle: ReadingStyle = .flash
+    @Published private(set) var remainingTimeScope: RemainingTimeScope = .chapter
     @Published private(set) var recentBooks: [RecentBook] = []
 
     private static let wordsPerMinuteKey = "wordsPerMinute"
     private static let readingStyleKey = "readingStyle"
+    private static let remainingTimeScopeKey = "remainingTimeScope"
     private let defaults: UserDefaults
     private let library: BookLibrary
     private var currentBookID: String?
@@ -61,6 +74,10 @@ final class ReaderModel: ObservableObject {
         if let stored = defaults.string(forKey: Self.readingStyleKey),
            let style = ReadingStyle(rawValue: stored) {
             readingStyle = style
+        }
+        if let stored = defaults.string(forKey: Self.remainingTimeScopeKey),
+           let scope = RemainingTimeScope(rawValue: stored) {
+            remainingTimeScope = scope
         }
         do {
             recentBooks = try library.loadIndex().sorted { $0.lastOpened > $1.lastOpened }
@@ -128,8 +145,16 @@ final class ReaderModel: ObservableObject {
     }
 
     var remainingTime: String {
-        guard let chapter = currentChapter else { return "--:--" }
-        let seconds = Int(ceil(Double(chapter.words.count - wordIndex) * 60 / Double(wordsPerMinute)))
+        guard let chapter = currentChapter, let book = book else { return "--:--" }
+        let remainingWords: Int
+        switch remainingTimeScope {
+        case .chapter:
+            remainingWords = chapter.words.count - wordIndex
+        case .book:
+            let preceding = book.chapters.prefix(chapterIndex).reduce(0) { $0 + $1.words.count }
+            remainingWords = totalWords - preceding - wordIndex
+        }
+        let seconds = Int(ceil(Double(remainingWords) * 60 / Double(wordsPerMinute)))
         if seconds >= 3600 {
             return String(format: "%d:%02d:%02d", seconds / 3600, (seconds / 60) % 60, seconds % 60)
         }
@@ -219,6 +244,12 @@ final class ReaderModel: ObservableObject {
         guard style != readingStyle else { return }
         readingStyle = style
         defaults.set(style.rawValue, forKey: Self.readingStyleKey)
+    }
+
+    func setRemainingTimeScope(_ scope: RemainingTimeScope) {
+        guard scope != remainingTimeScope else { return }
+        remainingTimeScope = scope
+        defaults.set(scope.rawValue, forKey: Self.remainingTimeScopeKey)
     }
 
     func toggleReading() {

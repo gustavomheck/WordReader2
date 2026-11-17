@@ -203,7 +203,7 @@ struct ContentView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(Int(reader.progress * 100))% complete")
-                    Text("\(reader.remainingTime) left in chapter")
+                    Text("\(reader.remainingTime) left in \(reader.remainingTimeScope.rawValue)")
                         .foregroundColor(subdued)
                 }
                 .font(.caption)
@@ -428,6 +428,18 @@ private struct ReaderSettings: View {
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)
+                }
+
+                Section("Remaining time") {
+                    Picker("Remaining time", selection: Binding(
+                        get: { reader.remainingTimeScope },
+                        set: { reader.setRemainingTimeScope($0) }
+                    )) {
+                        ForEach(RemainingTimeScope.allCases, id: \.self) { scope in
+                            Text(scope.title).tag(scope)
+                        }
+                    }
+                    .pickerStyle(.segmented)
                 }
 
                 Section("Appearance") {
