@@ -2,6 +2,8 @@
 
 An iPhone speed reader for EPUB books. The reader shows one word at a time with its focal character aligned to the center.
 
+The interface follows the device language and supports English and Brazilian Portuguese. Other languages fall back to English; book text and titles remain in their original language.
+
 ## Run on an iPhone
 
 1. Open `WordReader2.xcodeproj` in Xcode and allow it to resolve its Swift packages.

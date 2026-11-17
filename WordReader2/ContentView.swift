@@ -6,9 +6,9 @@ enum ReaderTheme: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .dark: return "Dark"
-        case .light: return "White"
-        case .device: return "Device"
+        case .dark: return NSLocalizedString("Dark", comment: "Theme")
+        case .light: return NSLocalizedString("White", comment: "Theme")
+        case .device: return NSLocalizedString("Device", comment: "Theme")
         }
     }
 
@@ -148,7 +148,7 @@ struct ContentView: View {
         ) { result in
             switch result {
             case .success(let url): reader.open(url)
-            case .failure(let error): reader.errorMessage = "Could not select a file: \(error.localizedDescription)"
+            case .failure(let error): reader.errorMessage = String(format: NSLocalizedString("Could not select a file: %@", comment: ""), error.localizedDescription)
             }
         }
         .alert("Book Library", isPresented: Binding(
@@ -189,7 +189,7 @@ struct ContentView: View {
             } label: {
                 Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 19, weight: .medium))
-                    .frame(width: 44, height: 44)
+                    .frame(width: 42, height: 42)
                     .background(rule, in: Circle())
             }
             .accessibilityLabel("Configuration")
@@ -237,11 +237,14 @@ struct ContentView: View {
             ProgressView(value: reader.progress)
                 .tint(reader.accent.color)
                 .accessibilityLabel("Book progress")
-                .accessibilityValue("\(Int(reader.progress * 100)) percent")
+                .accessibilityValue(Text(String(format: NSLocalizedString("%ld percent", comment: ""), Int(reader.progress * 100))))
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(Int(reader.progress * 100))% complete")
-                    Text("\(reader.remainingTime) left in \(reader.remainingTimeScope.rawValue)")
+                    Text(String(format: NSLocalizedString("%ld%% complete", comment: ""), Int(reader.progress * 100)))
+                    Text(String(format: NSLocalizedString(
+                        reader.remainingTimeScope == .chapter ? "%@ left in chapter" : "%@ left in book",
+                        comment: "Remaining reading time"
+                    ), reader.remainingTime))
                         .foregroundColor(subdued)
                 }
                 .font(.caption)
@@ -262,7 +265,9 @@ struct ContentView: View {
     }
 
     private var readingActionLabel: String {
-        reader.isReading ? "Pause" : reader.isFinished ? "Read again" : "Read"
+        if reader.isReading { return NSLocalizedString("Pause", comment: "") }
+        if reader.isFinished { return NSLocalizedString("Read again", comment: "") }
+        return NSLocalizedString("Read", comment: "")
     }
 
     private var accentButtonText: Color {
@@ -402,7 +407,7 @@ private struct ReaderSettings: View {
                                         Text(recent.title)
                                             .foregroundColor(.primary)
                                             .lineLimit(2)
-                                        Text("\(Int(recent.progress * 100))% complete")
+                                        Text(String(format: NSLocalizedString("%ld%% complete", comment: ""), Int(recent.progress * 100)))
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
@@ -456,7 +461,7 @@ private struct ReaderSettings: View {
                     HStack {
                         Text("Words per minute")
                         Spacer()
-                        Text("\(reader.wordsPerMinute) wpm")
+                        Text(String(format: NSLocalizedString("%ld wpm", comment: ""), reader.wordsPerMinute))
                             .foregroundColor(.secondary)
                             .monospacedDigit()
                     }
@@ -550,7 +555,7 @@ private struct ReaderSettings: View {
 }
 
 private struct SettingSelectionLink<Option: Hashable>: View {
-    let title: String
+    let title: LocalizedStringKey
     let options: [Option]
     @Binding var selection: Option
     let optionTitle: (Option) -> String

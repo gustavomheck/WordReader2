@@ -6,8 +6,8 @@ enum ReadingStyle: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .flash: return "Flash"
-        case .flow: return "Flow"
+        case .flash: return NSLocalizedString("Flash", comment: "Reading style")
+        case .flow: return NSLocalizedString("Flow", comment: "Reading style")
         }
     }
 }
@@ -17,8 +17,8 @@ enum RemainingTimeScope: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .chapter: return "Chapter"
-        case .book: return "Book"
+        case .chapter: return NSLocalizedString("Chapter", comment: "Remaining time")
+        case .book: return NSLocalizedString("Book", comment: "Remaining time")
         }
     }
 }
@@ -26,7 +26,16 @@ enum RemainingTimeScope: String, CaseIterable {
 enum ReaderAccent: String, CaseIterable {
     case red, orange, green, blue, purple, pink
 
-    var title: String { rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .red: return NSLocalizedString("Red", comment: "Accent color")
+        case .orange: return NSLocalizedString("Orange", comment: "Accent color")
+        case .green: return NSLocalizedString("Green", comment: "Accent color")
+        case .blue: return NSLocalizedString("Blue", comment: "Accent color")
+        case .purple: return NSLocalizedString("Purple", comment: "Accent color")
+        case .pink: return NSLocalizedString("Pink", comment: "Accent color")
+        }
+    }
 }
 
 struct ReadingWord: Identifiable {
@@ -98,7 +107,7 @@ final class ReaderModel: ObservableObject {
             }
         } catch {
             libraryAvailable = false
-            errorMessage = "Could not load your saved books: \(error.localizedDescription)"
+            errorMessage = String(format: NSLocalizedString("Could not load your saved books: %@", comment: ""), error.localizedDescription)
         }
     }
 
@@ -177,7 +186,7 @@ final class ReaderModel: ObservableObject {
         guard !isLoading else { return }
         pause()
         guard libraryAvailable else {
-            errorMessage = "Your saved library could not be loaded. Restart the app before importing another book."
+            errorMessage = NSLocalizedString("Your saved library could not be loaded. Restart the app before importing another book.", comment: "")
             return
         }
         isLoading = true
@@ -189,7 +198,7 @@ final class ReaderModel: ObservableObject {
                 }.value
                 try activate(imported.book, id: imported.id)
             } catch {
-                errorMessage = "Could not open EPUB: \(error.localizedDescription)"
+                errorMessage = String(format: NSLocalizedString("Could not open EPUB: %@", comment: ""), error.localizedDescription)
             }
             isLoading = false
         }
@@ -207,7 +216,7 @@ final class ReaderModel: ObservableObject {
                 }.value
                 try activate(loaded, id: recent.id)
             } catch {
-                errorMessage = "Could not open saved book: \(error.localizedDescription)"
+                errorMessage = String(format: NSLocalizedString("Could not open saved book: %@", comment: ""), error.localizedDescription)
             }
             isLoading = false
         }
@@ -305,7 +314,7 @@ final class ReaderModel: ObservableObject {
             readingTask?.cancel()
             readingTask = nil
             isReading = false
-            errorMessage = "Could not save reading progress: \(error.localizedDescription)"
+            errorMessage = String(format: NSLocalizedString("Could not save reading progress: %@", comment: ""), error.localizedDescription)
         }
     }
 

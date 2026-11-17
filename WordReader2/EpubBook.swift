@@ -17,7 +17,7 @@ enum EpubError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalid(let message): return message
+        case .invalid(let message): return NSLocalizedString(message, comment: "EPUB error")
         }
     }
 }
@@ -87,7 +87,7 @@ enum EpubBookService {
 
     private static func read(_ path: String, from archive: Archive) throws -> String {
         guard let entry = archive[path], entry.type == .file else {
-            throw EpubError.invalid("The EPUB is missing \(path).")
+            throw EpubError.invalid(String(format: NSLocalizedString("The EPUB is missing %@.", comment: "Missing EPUB file"), path))
         }
         guard entry.uncompressedSize <= maximumEntrySize else {
             throw EpubError.invalid("An EPUB file is too large to open safely.")

@@ -22,8 +22,39 @@ final class ReaderTests: XCTestCase {
         XCTAssertEqual(ReaderTheme.dark.colorScheme, .dark)
         XCTAssertEqual(ReaderTheme.light.colorScheme, .light)
         XCTAssertNil(ReaderTheme.device.colorScheme)
-        XCTAssertEqual(ReaderTheme.allCases.map(\.title), ["Dark", "White", "Device"])
+        XCTAssertEqual(ReaderTheme.allCases.map(\.rawValue), ["dark", "light", "device"])
         XCTAssertEqual(ReaderTheme(rawValue: "device"), .device)
+    }
+
+    func testLocalizationResourcesAndEnglishFallback() throws {
+        let bundle = Bundle.main
+        let englishPath = try XCTUnwrap(bundle.path(forResource: "en", ofType: "lproj"))
+        let portuguesePath = try XCTUnwrap(bundle.path(forResource: "pt-BR", ofType: "lproj"))
+        let english = try XCTUnwrap(Bundle(path: englishPath))
+        let portuguese = try XCTUnwrap(Bundle(path: portuguesePath))
+        let englishStrings = try XCTUnwrap(NSDictionary(contentsOfFile: englishPath + "/Localizable.strings") as? [String: String])
+        let portugueseStrings = try XCTUnwrap(NSDictionary(contentsOfFile: portuguesePath + "/Localizable.strings") as? [String: String])
+        XCTAssertEqual(Set(englishStrings.keys), Set(portugueseStrings.keys))
+        XCTAssertEqual(english.localizedString(forKey: "Configuration", value: nil, table: nil), "Configuration")
+        XCTAssertEqual(portuguese.localizedString(forKey: "Configuration", value: nil, table: nil), "Configurações")
+        let formatted = String(format: portuguese.localizedString(forKey: "%@ left in book", value: nil, table: nil), "1:30")
+        XCTAssertEqual(formatted, "1:30 restantes no livro")
+        XCTAssertEqual(bundle.developmentLocalization, "en")
+        XCTAssertTrue(bundle.localizations.contains("en"))
+        XCTAssertTrue(bundle.localizations.contains("pt-BR"))
+        if Locale.preferredLanguages.first?.hasPrefix("pt-BR") == true {
+            XCTAssertEqual(bundle.preferredLocalizations.first, "pt-BR")
+            XCTAssertEqual(ReaderTheme.dark.title, "Escuro")
+            XCTAssertEqual(RemainingTimeScope.book.title, "Livro")
+            XCTAssertEqual(ReaderAccent.blue.title, "Azul")
+            XCTAssertEqual(EpubError.invalid("This EPUB has no package document.").localizedDescription,
+                           "Este EPUB não possui um documento de pacote.")
+        } else {
+            XCTAssertEqual(bundle.preferredLocalizations.first, "en")
+            XCTAssertEqual(ReaderTheme.dark.title, "Dark")
+            XCTAssertEqual(RemainingTimeScope.book.title, "Book")
+            XCTAssertEqual(ReaderAccent.blue.title, "Blue")
+        }
     }
 
     @MainActor

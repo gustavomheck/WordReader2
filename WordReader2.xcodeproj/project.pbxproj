@@ -18,6 +18,7 @@
 		A10000000000000000000010 /* ReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* ReaderTests.swift */; };
 		A10000000000000000000012 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000009 /* ZIPFoundation */; };
 		A10000000000000000000020 /* BookLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* BookLibrary.swift */; };
+		A10000000000000000000030 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000031 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -41,6 +42,8 @@
 		A10000000000000000000011 /* ReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000014 /* WordReader2Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WordReader2Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000021 /* BookLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookLibrary.swift; sourceTree = "<group>"; };
+		A10000000000000000000032 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A10000000000000000000033 /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "pt-BR"; path = "pt-BR.lproj/Localizable.strings"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +93,7 @@
 				A10000000000000000000003 /* EpubBook.swift */,
 				A10000000000000000000004 /* ReaderModel.swift */,
 				A10000000000000000000021 /* BookLibrary.swift */,
+				A10000000000000000000031 /* Localizable.strings */,
 				8A1A677730ABB6AB00453F41 /* Assets.xcassets */,
 				8A1A677930ABB6AB00453F41 /* Preview Content */,
 			);
@@ -113,6 +117,18 @@
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
+
+/* Begin PBXVariantGroup section */
+		A10000000000000000000031 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A10000000000000000000032 /* en */,
+				A10000000000000000000033 /* pt-BR */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXNativeTarget section */
 		8A1A676F30ABB6AA00453F41 /* WordReader2 */ = {
@@ -182,6 +198,7 @@
 			knownRegions = (
 				en,
 				Base,
+				"pt-BR",
 			);
 			mainGroup = 8A1A676730ABB6AA00453F41;
 			packageReferences = (
@@ -205,6 +222,7 @@
 			files = (
 				8A1A677B30ABB6AB00453F41 /* Preview Assets.xcassets in Resources */,
 				8A1A677830ABB6AB00453F41 /* Assets.xcassets in Resources */,
+				A10000000000000000000030 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
