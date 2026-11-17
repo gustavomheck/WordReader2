@@ -1,0 +1,30 @@
+﻿using Microsoft.Win32;
+using System.Windows;
+using VersOne.Epub;
+
+namespace WordReaderV2
+{
+    /// <summary>
+    /// Interaction logic for MainWindow.xaml
+    /// </summary>
+    public partial class MainWindow : Window
+    {
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        private void AddBook(object sender, RoutedEventArgs e)
+        {
+            var openFileDialog = new OpenFileDialog()
+            {
+                Filter = "EPUB files (*.epub)|*.epub|All files (*.*)|*.*"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                EpubBookRef epubBookRef = EpubReader.OpenBook(openFileDialog.FileName);
+            }
+        }
+    }
+}

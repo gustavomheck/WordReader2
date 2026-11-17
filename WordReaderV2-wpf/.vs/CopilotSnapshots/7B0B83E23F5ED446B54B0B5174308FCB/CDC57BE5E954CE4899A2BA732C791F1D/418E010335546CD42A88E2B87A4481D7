@@ -1,0 +1,315 @@
+﻿using System.ComponentModel;
+using System.IO;
+using System.Runtime.CompilerServices;
+using System.Windows.Input;
+using System.Windows.Threading;
+using WordReaderV2.Models;
+using WordReaderV2.Services;
+
+namespace WordReaderV2.ViewModels;
+
+public sealed class MainWindowViewModel : INotifyPropertyChanged
+{
+    private readonly EpubBookService _bookService;
+    private readonly IFileDialogService _fileDialogService;
+    private readonly DispatcherTimer _readingTimer;
+    private IReadOnlyList<ReadingChapter> _chapters = [];
+    private int _chapterIndex;
+    private int _wordIndex;
+    private int _wordsPerMinute = 300;
+    private bool _isReading;
+    private string _bookTitle = "Nenhum livro carregado";
+    private string _statusMessage = "Selecione um arquivo EPUB para começar.";
+
+    public MainWindowViewModel(EpubBookService bookService, IFileDialogService fileDialogService)
+    {
+        _bookService = bookService;
+        _fileDialogService = fileDialogService;
+        _readingTimer = new DispatcherTimer();
+        _readingTimer.Tick += (_, _) => AdvanceWord();
+        UpdateTimerInterval();
+
+        OpenBookCommand = new RelayCommand(async _ => await OpenBookAsync(), _ => !IsLoading);
+        ToggleReadingCommand = new RelayCommand(_ => ToggleReading(), _ => IsBookLoaded);
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public ICommand OpenBookCommand { get; }
+
+    public ICommand ToggleReadingCommand { get; }
+
+    public bool IsLoading { get; private set; }
+
+    public bool IsBookLoaded => _chapters.Count > 0;
+
+    public bool IsReading
+    {
+        get => _isReading;
+        private set
+        {
+            if (SetField(ref _isReading, value))
+            {
+                OnPropertyChanged(nameof(ReadingButtonText));
+                OnPropertyChanged(nameof(CanSelectChapter));
+            }
+        }
+    }
+
+    public string ReadingButtonText => IsReading ? "Pausar" : "Continuar";
+
+    public bool CanSelectChapter => IsBookLoaded && !IsReading;
+
+    public IReadOnlyList<ReadingChapter> Chapters => _chapters;
+
+    public ReadingChapter? SelectedChapter
+    {
+        get => IsBookLoaded ? _chapters[_chapterIndex] : null;
+        set
+        {
+            if (value is null || IsReading)
+            {
+                return;
+            }
+
+            int selectedIndex = _chapters.IndexOf(value);
+            if (selectedIndex < 0 || selectedIndex == _chapterIndex)
+            {
+                return;
+            }
+
+            _chapterIndex = selectedIndex;
+            _wordIndex = 0;
+            StatusMessage = "Capítulo selecionado. Pronto para leitura.";
+            NotifyReadingPositionChanged();
+        }
+    }
+
+    public string BookTitle
+    {
+        get => _bookTitle;
+        private set => SetField(ref _bookTitle, value);
+    }
+
+    public string StatusMessage
+    {
+        get => _statusMessage;
+        private set => SetField(ref _statusMessage, value);
+    }
+
+    public int WordsPerMinute
+    {
+        get => _wordsPerMinute;
+        set
+        {
+            int boundedValue = Math.Clamp(value, 50, 1_200);
+            if (SetField(ref _wordsPerMinute, boundedValue))
+            {
+                UpdateTimerInterval();
+                OnPropertyChanged(nameof(RemainingChapterTime));
+            }
+        }
+    }
+
+    public string CurrentWordPrefix => GetWordParts().Prefix;
+
+    public string FocalLetter => GetWordParts().FocalLetter;
+
+    public string CurrentWordSuffix => GetWordParts().Suffix;
+
+    public string CurrentChapterTitle => IsBookLoaded ? _chapters[_chapterIndex].Title : "";
+
+    public string RemainingChapterTime
+    {
+        get
+        {
+            if (!IsBookLoaded)
+            {
+                return "--:--";
+            }
+
+            int remainingWords = _chapters[_chapterIndex].Words.Count - _wordIndex;
+            var remaining = TimeSpan.FromSeconds(Math.Ceiling(remainingWords * 60d / WordsPerMinute));
+            return remaining.ToString(@"mm\:ss");
+        }
+    }
+
+    public double BookProgress
+    {
+        get
+        {
+            int totalWords = _chapters.Sum(chapter => chapter.Words.Count);
+            if (totalWords == 0)
+            {
+                return 0;
+            }
+
+            int completedWords = _chapters.Take(_chapterIndex).Sum(chapter => chapter.Words.Count) + _wordIndex;
+            return completedWords * 100d / totalWords;
+        }
+    }
+
+    public string BookProgressText => $"{BookProgress:0}% concluído";
+
+    private async Task OpenBookAsync()
+    {
+        string? filePath = _fileDialogService.SelectEpubFile();
+        if (filePath is null)
+        {
+            return;
+        }
+
+        IsLoading = true;
+        RaiseCommandStates();
+        StatusMessage = "Carregando livro...";
+
+        try
+        {
+            _chapters = await _bookService.LoadChaptersAsync(filePath);
+            _chapterIndex = 0;
+            _wordIndex = 0;
+            StopReading();
+
+            if (!IsBookLoaded)
+            {
+                BookTitle = "Livro sem texto legível";
+                StatusMessage = "Não foram encontradas palavras para leitura.";
+                return;
+            }
+
+            BookTitle = Path.GetFileNameWithoutExtension(filePath);
+            StatusMessage = "Pronto para leitura.";
+            NotifyReadingPositionChanged();
+        }
+        catch (Exception)
+        {
+            _chapters = [];
+            BookTitle = "Não foi possível abrir o livro";
+            StatusMessage = "Verifique se o arquivo EPUB é válido.";
+            NotifyReadingPositionChanged();
+        }
+        finally
+        {
+            IsLoading = false;
+            OnPropertyChanged(nameof(IsLoading));
+            OnPropertyChanged(nameof(IsBookLoaded));
+            OnPropertyChanged(nameof(Chapters));
+            OnPropertyChanged(nameof(CanSelectChapter));
+            RaiseCommandStates();
+        }
+    }
+
+    private void ToggleReading()
+    {
+        if (IsReading)
+        {
+            StopReading();
+        }
+        else
+        {
+            IsReading = true;
+            _readingTimer.Start();
+        }
+    }
+
+    private void AdvanceWord()
+    {
+        if (++_wordIndex < _chapters[_chapterIndex].Words.Count)
+        {
+            NotifyReadingPositionChanged();
+            return;
+        }
+
+        if (++_chapterIndex < _chapters.Count)
+        {
+            _wordIndex = 0;
+            NotifyReadingPositionChanged();
+            return;
+        }
+
+        _chapterIndex = _chapters.Count - 1;
+        _wordIndex = _chapters[_chapterIndex].Words.Count;
+        StopReading();
+        StatusMessage = "Leitura concluída.";
+        NotifyReadingPositionChanged();
+    }
+
+    private void StopReading()
+    {
+        _readingTimer.Stop();
+        IsReading = false;
+    }
+
+    private void UpdateTimerInterval() => _readingTimer.Interval = TimeSpan.FromMilliseconds(60_000d / WordsPerMinute);
+
+    private (string Prefix, string FocalLetter, string Suffix) GetWordParts()
+    {
+        if (!IsBookLoaded || _wordIndex >= _chapters[_chapterIndex].Words.Count)
+        {
+            return ("", "", "");
+        }
+
+        string word = _chapters[_chapterIndex].Words[_wordIndex];
+        int focalIndex = word.Length switch
+        {
+            <= 1 => 0,
+            <= 5 => 1,
+            <= 9 => 2,
+            _ => 3
+        };
+
+        return (word[..focalIndex], word[focalIndex].ToString(), word[(focalIndex + 1)..]);
+    }
+
+    private void NotifyReadingPositionChanged()
+    {
+        OnPropertyChanged(nameof(CurrentWordPrefix));
+        OnPropertyChanged(nameof(FocalLetter));
+        OnPropertyChanged(nameof(CurrentWordSuffix));
+        OnPropertyChanged(nameof(CurrentChapterTitle));
+        OnPropertyChanged(nameof(SelectedChapter));
+        OnPropertyChanged(nameof(RemainingChapterTime));
+        OnPropertyChanged(nameof(BookProgress));
+        OnPropertyChanged(nameof(BookProgressText));
+    }
+
+    private void RaiseCommandStates()
+    {
+        ((RelayCommand)OpenBookCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)ToggleReadingCommand).RaiseCanExecuteChanged();
+    }
+
+    private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return false;
+        }
+
+        field = value;
+        OnPropertyChanged(propertyName);
+        return true;
+    }
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+    private sealed class RelayCommand : ICommand
+    {
+        private readonly Action<object?> _execute;
+        private readonly Predicate<object?>? _canExecute;
+
+        public RelayCommand(Action<object?> execute, Predicate<object?>? canExecute = null)
+        {
+            _execute = execute;
+            _canExecute = canExecute;
+        }
+
+        public event EventHandler? CanExecuteChanged;
+
+        public bool CanExecute(object? parameter) => _canExecute?.Invoke(parameter) ?? true;
+
+        public void Execute(object? parameter) => _execute(parameter);
+
+        public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+    }
+}
