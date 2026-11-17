@@ -56,7 +56,7 @@ final class ReaderTests: XCTestCase {
         XCTAssertEqual(ReaderModel(library: library, restoreLastBook: false, defaults: defaults).readingStyle, .flash)
     }
 
-    func testFlowLayoutFitsNeighborsWithoutOverlap() {
+    func testFlowLayoutClipsNeighborsInsteadOfShrinkingCurrentWord() {
         let previous = ReadingWord(id: .init(chapter: 0, index: 0), text: "beautiful")
         let current = ReadingWord(id: .init(chapter: 0, index: 1), text: "reading")
         let next = ReadingWord(id: .init(chapter: 0, index: 2), text: "experience")
@@ -65,12 +65,28 @@ final class ReaderTests: XCTestCase {
             let left = WordMetrics(parts: previous.parts, width: width, fontSize: layout.fontSize)
             let center = WordMetrics(parts: current.parts, width: width, fontSize: layout.fontSize)
             let right = WordMetrics(parts: next.parts, width: width, fontSize: layout.fontSize)
-            XCTAssertGreaterThanOrEqual(layout.previousOffset - left.left, -width / 2 - 0.01)
-            XCTAssertLessThanOrEqual(layout.nextOffset + right.right, width / 2 + 0.01)
+            XCTAssertEqual(layout.fontSize, WordMetrics(parts: current.parts, width: width).fontSize, accuracy: 0.001)
+            XCTAssertEqual(layout.fontSize, 54, accuracy: 0.001)
             XCTAssertLessThan(layout.previousOffset + left.right, -center.left)
             XCTAssertGreaterThan(layout.nextOffset - right.left, center.right)
-            XCTAssertLessThanOrEqual(layout.fontSize, 54)
+            if width == 320 {
+                XCTAssertLessThan(layout.previousOffset - left.left, -width / 2)
+                XCTAssertGreaterThan(layout.nextOffset + right.right, width / 2)
+            }
         }
+    }
+
+    func testFlowShrinksOnlyAnOversizedCurrentWord() {
+        let long = ReadingWord(id: .init(chapter: 0, index: 1), text: String(repeating: "W", count: 100))
+        let neighbor = ReadingWord(id: .init(chapter: 0, index: 2), text: String(repeating: "M", count: 40))
+        let width: CGFloat = 320
+        let layout = FlowLayout(previous: neighbor, current: long, next: neighbor, width: width)
+        let alone = FlowLayout(previous: nil, current: long, next: nil, width: width)
+        let current = WordMetrics(parts: long.parts, width: width, fontSize: layout.fontSize)
+        XCTAssertLessThan(layout.fontSize, 12)
+        XCTAssertEqual(layout.fontSize, alone.fontSize, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(current.left, width / 2 + 0.01)
+        XCTAssertLessThanOrEqual(current.right, width / 2 + 0.01)
     }
 
     @MainActor

@@ -247,10 +247,12 @@ private struct FocalWord: View {
             let size = WordMetrics(parts: parts, width: geometry.size.width, fontSize: fontSize).fontSize
             HStack(spacing: 0) {
                 Text(parts.prefix)
+                    .fixedSize(horizontal: true, vertical: false)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 Text(parts.focal)
                     .foregroundColor(highlighted ? highlight : .primary)
                 Text(parts.suffix)
+                    .fixedSize(horizontal: true, vertical: false)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .font(.custom("Georgia", size: size))
@@ -275,7 +277,7 @@ struct WordMetrics {
         let center = (parts.focal as NSString).size(withAttributes: attributes).width
         let right = (parts.suffix as NSString).size(withAttributes: attributes).width
         let required = 2 * max(left, right) + center
-        let size = fontSize ?? (required > width ? max(12, 54 * width / required) : 54)
+        let size = fontSize ?? (required > width ? 54 * max(0, width) / required : 54)
         self.fontSize = size
         self.left = (left + center / 2) * size / 54
         self.right = (right + center / 2) * size / 54
@@ -292,10 +294,7 @@ struct FlowLayout {
         let currentBase = WordMetrics(parts: current.parts, width: .greatestFiniteMagnitude)
         let previousBase = previous.map { WordMetrics(parts: $0.parts, width: .greatestFiniteMagnitude) }
         let nextBase = next.map { WordMetrics(parts: $0.parts, width: .greatestFiniteMagnitude) }
-        let left = currentBase.left + (previousBase.map { $0.left + $0.right } ?? 0)
-        let right = currentBase.right + (nextBase.map { $0.left + $0.right } ?? 0)
-        let available = max(1, width / 2 - Self.spacing)
-        fontSize = min(54, 54 * available / max(1, max(left, right)))
+        fontSize = WordMetrics(parts: current.parts, width: width).fontSize
         let scale = fontSize / 54
         previousOffset = -(currentBase.left + (previousBase?.right ?? 0)) * scale - Self.spacing
         nextOffset = (currentBase.right + (nextBase?.left ?? 0)) * scale + Self.spacing

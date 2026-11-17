@@ -16,6 +16,7 @@ Choose **Dark**, **White**, or **Device** under Appearance in the reading menu. 
 Enable **Zen mode** under Appearance to hide the book and chapter titles and the reading button. Tap the word or the surrounding screen to start, pause, or restart reading; the configuration menu remains available. With no book loaded, tap to open the EPUB picker. The setting is remembered between launches.
 
 Choose **Flash** for the original one-word display or **Flow** to see the previous and next words alongside the current word, without animation. The reading style is remembered between launches.
+In Flow, neighboring words are cropped at the edges when necessary; the font shrinks only when the current word cannot fit.
 
 Imported books appear under **Recent books** in the reading menu. The app keeps a private copy of each EPUB and saves its reading position independently; the most recently opened book is restored on launch. Progress is saved when pausing, switching chapters or books, leaving the app, and approximately once a second during playback. Reimporting the same file resumes its saved position.
 
