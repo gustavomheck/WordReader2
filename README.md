@@ -13,6 +13,8 @@ Tap **Read** to start or **Pause** to stop. The reader advances through chapters
 
 Choose **Dark**, **White**, or **Device** under Appearance in the reading menu. Device follows the iPhone's light or dark appearance. The selected theme is remembered between launches.
 
+Choose **Flash** for the original one-word display or **Flow** to see the previous and next words alongside the current word, without animation. The reading style is remembered between launches.
+
 Imported books appear under **Recent books** in the reading menu. The app keeps a private copy of each EPUB and saves its reading position independently; the most recently opened book is restored on launch. Progress is saved when pausing, switching chapters or books, leaving the app, and approximately once a second during playback. Reimporting the same file resumes its saved position.
 
 The app reads unprotected EPUBs with HTML or XHTML content in their reading order. DRM-protected books and other reading-order content formats are not supported. Saved books use device storage and are removed if the app is deleted.

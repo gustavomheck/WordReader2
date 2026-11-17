@@ -1,6 +1,34 @@
 import Foundation
 import Combine
 
+enum ReadingStyle: String, CaseIterable {
+    case flash, flow
+
+    var title: String {
+        switch self {
+        case .flash: return "Flash"
+        case .flow: return "Flow"
+        }
+    }
+}
+
+struct ReadingWord: Identifiable {
+    struct ID: Hashable {
+        let chapter: Int
+        let index: Int
+    }
+
+    let id: ID
+    let text: String
+
+    var parts: (prefix: String, focal: String, suffix: String) {
+        let word = Array(text)
+        guard !word.isEmpty else { return ("", "", "") }
+        let index = word.count <= 1 ? 0 : word.count <= 5 ? 1 : word.count <= 9 ? 2 : 3
+        return (String(word[..<index]), String(word[index]), String(word[(index + 1)...]))
+    }
+}
+
 @MainActor
 final class ReaderModel: ObservableObject {
     @Published private(set) var book: EpubBook?
@@ -10,9 +38,11 @@ final class ReaderModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
     @Published private(set) var wordsPerMinute = 300
+    @Published private(set) var readingStyle: ReadingStyle = .flash
     @Published private(set) var recentBooks: [RecentBook] = []
 
     private static let wordsPerMinuteKey = "wordsPerMinute"
+    private static let readingStyleKey = "readingStyle"
     private let defaults: UserDefaults
     private let library: BookLibrary
     private var currentBookID: String?
@@ -27,6 +57,10 @@ final class ReaderModel: ObservableObject {
         self.defaults = defaults
         if let stored = defaults.object(forKey: Self.wordsPerMinuteKey) as? Int {
             wordsPerMinute = min(1200, max(50, stored))
+        }
+        if let stored = defaults.string(forKey: Self.readingStyleKey),
+           let style = ReadingStyle(rawValue: stored) {
+            readingStyle = style
         }
         do {
             recentBooks = try library.loadIndex().sorted { $0.lastOpened > $1.lastOpened }
@@ -50,10 +84,36 @@ final class ReaderModel: ObservableObject {
     }
 
     var wordParts: (prefix: String, focal: String, suffix: String) {
-        let word = Array(currentWord)
-        guard !word.isEmpty else { return ("", "", "") }
-        let index = word.count <= 1 ? 0 : word.count <= 5 ? 1 : word.count <= 9 ? 2 : 3
-        return (String(word[..<index]), String(word[index]), String(word[(index + 1)...]))
+        currentReadingWord?.parts ?? ("", "", "")
+    }
+
+    var currentReadingWord: ReadingWord? {
+        readingWord(chapter: chapterIndex, index: wordIndex)
+    }
+
+    var previousReadingWord: ReadingWord? {
+        guard currentReadingWord != nil, let book = book else { return nil }
+        if wordIndex > 0 {
+            return readingWord(chapter: chapterIndex, index: wordIndex - 1)
+        }
+        guard chapterIndex > 0 else { return nil }
+        let previousChapter = chapterIndex - 1
+        return readingWord(chapter: previousChapter, index: book.chapters[previousChapter].words.count - 1)
+    }
+
+    var nextReadingWord: ReadingWord? {
+        guard currentReadingWord != nil, let book = book, let chapter = currentChapter else { return nil }
+        if wordIndex + 1 < chapter.words.count {
+            return readingWord(chapter: chapterIndex, index: wordIndex + 1)
+        }
+        guard chapterIndex + 1 < book.chapters.count else { return nil }
+        return readingWord(chapter: chapterIndex + 1, index: 0)
+    }
+
+    private func readingWord(chapter: Int, index: Int) -> ReadingWord? {
+        guard let book = book, book.chapters.indices.contains(chapter),
+              book.chapters[chapter].words.indices.contains(index) else { return nil }
+        return ReadingWord(id: .init(chapter: chapter, index: index), text: book.chapters[chapter].words[index])
     }
 
     var isFinished: Bool {
@@ -153,6 +213,12 @@ final class ReaderModel: ObservableObject {
         wordsPerMinute = bounded
         defaults.set(bounded, forKey: Self.wordsPerMinuteKey)
         if isReading { startTimer() }
+    }
+
+    func setReadingStyle(_ style: ReadingStyle) {
+        guard style != readingStyle else { return }
+        readingStyle = style
+        defaults.set(style.rawValue, forKey: Self.readingStyleKey)
     }
 
     func toggleReading() {

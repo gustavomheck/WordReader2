@@ -43,6 +43,60 @@ final class ReaderTests: XCTestCase {
         XCTAssertEqual(ReaderModel(library: library, restoreLastBook: false, defaults: defaults).wordsPerMinute, 1200)
     }
 
+    @MainActor
+    func testReadingStylePersistsAndDefaultsToFlash() throws {
+        let defaults = try makeDefaults()
+        let library = try makeLibrary()
+        let reader = ReaderModel(library: library, restoreLastBook: false, defaults: defaults)
+        XCTAssertEqual(reader.readingStyle, .flash)
+        reader.setReadingStyle(.flow)
+        let relaunched = ReaderModel(library: library, restoreLastBook: false, defaults: defaults)
+        XCTAssertEqual(relaunched.readingStyle, .flow)
+        relaunched.setReadingStyle(.flash)
+        XCTAssertEqual(ReaderModel(library: library, restoreLastBook: false, defaults: defaults).readingStyle, .flash)
+    }
+
+    func testFlowLayoutFitsNeighborsWithoutOverlap() {
+        let previous = ReadingWord(id: .init(chapter: 0, index: 0), text: "beautiful")
+        let current = ReadingWord(id: .init(chapter: 0, index: 1), text: "reading")
+        let next = ReadingWord(id: .init(chapter: 0, index: 2), text: "experience")
+        for width: CGFloat in [320, 390, 700] {
+            let layout = FlowLayout(previous: previous, current: current, next: next, width: width)
+            let left = WordMetrics(parts: previous.parts, width: width, fontSize: layout.fontSize)
+            let center = WordMetrics(parts: current.parts, width: width, fontSize: layout.fontSize)
+            let right = WordMetrics(parts: next.parts, width: width, fontSize: layout.fontSize)
+            XCTAssertGreaterThanOrEqual(layout.previousOffset - left.left, -width / 2 - 0.01)
+            XCTAssertLessThanOrEqual(layout.nextOffset + right.right, width / 2 + 0.01)
+            XCTAssertLessThan(layout.previousOffset + left.right, -center.left)
+            XCTAssertGreaterThan(layout.nextOffset - right.left, center.right)
+            XCTAssertLessThanOrEqual(layout.fontSize, 54)
+        }
+    }
+
+    @MainActor
+    func testFlowNeighborsAcrossChapterBoundaries() async throws {
+        let url = try makeBook()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let reader = ReaderModel(library: try makeLibrary(), restoreLastBook: false, defaults: try makeDefaults())
+        reader.open(url)
+        for _ in 0..<100 where reader.isLoading { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertNil(reader.previousReadingWord)
+        XCTAssertEqual(reader.currentReadingWord?.text, "Second")
+        XCTAssertEqual(reader.nextReadingWord?.text, "or")
+        reader.selectChapter(1)
+        XCTAssertEqual(reader.previousReadingWord?.text, "into")
+        XCTAssertEqual(reader.currentReadingWord?.text, "First")
+        XCTAssertEqual(reader.nextReadingWord?.text, "last")
+        reader.setReadingStyle(.flow)
+        reader.setWordsPerMinute(1200)
+        reader.toggleReading()
+        for _ in 0..<100 where reader.isReading { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertTrue(reader.isFinished)
+        XCTAssertNil(reader.currentReadingWord)
+        XCTAssertNil(reader.previousReadingWord)
+        XCTAssertNil(reader.nextReadingWord)
+    }
+
     private func makeBook(title: String = "Test &amp; Book") throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".epub")
         let archive = try Archive(url: url, accessMode: .create)

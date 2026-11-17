@@ -151,6 +151,12 @@ struct ContentView: View {
                 Text("Finished")
                     .font(.custom("Georgia", size: 32))
                     .foregroundColor(subdued)
+            } else if reader.readingStyle == .flow, let current = reader.currentReadingWord {
+                FlowWords(
+                    previous: reader.previousReadingWord,
+                    current: current,
+                    next: reader.nextReadingWord
+                )
             } else {
                 FocalWord(parts: reader.wordParts)
             }
@@ -197,15 +203,17 @@ struct ContentView: View {
 
 private struct FocalWord: View {
     let parts: (prefix: String, focal: String, suffix: String)
+    var highlighted = true
+    var fontSize: CGFloat?
 
     var body: some View {
         GeometryReader { geometry in
-            let size = fontSize(for: geometry.size.width)
+            let size = WordMetrics(parts: parts, width: geometry.size.width, fontSize: fontSize).fontSize
             HStack(spacing: 0) {
                 Text(parts.prefix)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 Text(parts.focal)
-                    .foregroundColor(highlight)
+                    .foregroundColor(highlighted ? highlight : .primary)
                 Text(parts.suffix)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -217,15 +225,71 @@ private struct FocalWord: View {
         }
         .frame(height: 72)
     }
+}
 
-    private func fontSize(for width: CGFloat) -> CGFloat {
+struct WordMetrics {
+    let fontSize: CGFloat
+    let left: CGFloat
+    let right: CGFloat
+
+    init(parts: (prefix: String, focal: String, suffix: String), width: CGFloat, fontSize: CGFloat? = nil) {
         let font = UIFont(name: "Georgia", size: 54) ?? .systemFont(ofSize: 54)
         let attributes: [NSAttributedString.Key: Any] = [.font: font]
         let left = (parts.prefix as NSString).size(withAttributes: attributes).width
         let center = (parts.focal as NSString).size(withAttributes: attributes).width
         let right = (parts.suffix as NSString).size(withAttributes: attributes).width
         let required = 2 * max(left, right) + center
-        return required > width ? max(12, 54 * width / required) : 54
+        let size = fontSize ?? (required > width ? max(12, 54 * width / required) : 54)
+        self.fontSize = size
+        self.left = (left + center / 2) * size / 54
+        self.right = (right + center / 2) * size / 54
+    }
+}
+
+struct FlowLayout {
+    let fontSize: CGFloat
+    let previousOffset: CGFloat
+    let nextOffset: CGFloat
+    private static let spacing: CGFloat = 14
+
+    init(previous: ReadingWord?, current: ReadingWord, next: ReadingWord?, width: CGFloat) {
+        let currentBase = WordMetrics(parts: current.parts, width: .greatestFiniteMagnitude)
+        let previousBase = previous.map { WordMetrics(parts: $0.parts, width: .greatestFiniteMagnitude) }
+        let nextBase = next.map { WordMetrics(parts: $0.parts, width: .greatestFiniteMagnitude) }
+        let left = currentBase.left + (previousBase.map { $0.left + $0.right } ?? 0)
+        let right = currentBase.right + (nextBase.map { $0.left + $0.right } ?? 0)
+        let available = max(1, width / 2 - Self.spacing)
+        fontSize = min(54, 54 * available / max(1, max(left, right)))
+        let scale = fontSize / 54
+        previousOffset = -(currentBase.left + (previousBase?.right ?? 0)) * scale - Self.spacing
+        nextOffset = (currentBase.right + (nextBase?.left ?? 0)) * scale + Self.spacing
+    }
+}
+
+private struct FlowWords: View {
+    let previous: ReadingWord?
+    let current: ReadingWord
+    let next: ReadingWord?
+
+    var body: some View {
+        GeometryReader { geometry in
+            let layout = FlowLayout(previous: previous, current: current, next: next, width: geometry.size.width)
+            let words = [previous, current, next].compactMap { $0 }
+            ZStack {
+                ForEach(words) { word in
+                    let isCurrent = word.id == current.id
+                    FocalWord(parts: word.parts, highlighted: isCurrent, fontSize: layout.fontSize)
+                        .offset(x: isCurrent ? 0 : word.id == previous?.id ? layout.previousOffset : layout.nextOffset)
+                        .opacity(isCurrent ? 1 : 0.4)
+                }
+            }
+            .transaction { $0.animation = nil }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(current.text)
+        }
+        .frame(height: 72)
     }
 }
 
@@ -271,16 +335,7 @@ private struct ReaderSettings: View {
                         }
                     }
                 }
-
-                Section("Appearance") {
-                    Picker("Theme", selection: $theme) {
-                        ForEach(ReaderTheme.allCases, id: \.self) { option in
-                            Text(option.title).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-
+                
                 Section("Reading speed") {
                     HStack {
                         Text("Words per minute")
@@ -302,6 +357,30 @@ private struct ReaderSettings: View {
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)
+                }
+
+                Section("Appearance") {
+                    Picker("Theme", selection: $theme) {
+                        ForEach(ReaderTheme.allCases, id: \.self) { option in
+                            Text(option.title).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                Section("Reading style") {
+                    Picker("Reading style", selection: Binding(
+                        get: { reader.readingStyle },
+                        set: { reader.setReadingStyle($0) }
+                    )) {
+                        ForEach(ReadingStyle.allCases, id: \.self) { style in
+                            Text(style.title).tag(style)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    Text("Flow shows the previous and next words alongside the current word.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
 
                 if let book = reader.book {
